@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Tracker</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #8e44ad, #3498db);
+            color: #ffffff;
+        }
+
+        .container {
+            background-color: #ffffff;
+            border-radius: 15px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            padding: 30px;
+            width: 90%;
+            color: #333;
+        }
+
+        h1 {
+            font-size: 2.2em;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #8e44ad;
+        }
+
+        h2 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .transaction-form {
+            margin-bottom: 30px;
+        }
+
+        .transaction-form input,
+        .transaction-form select {
+            width: calc(100% - 20px);
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 1em;
+        }
+
+        .transaction-form button {
+            background: linear-gradient(135deg, #3498db, #8e44ad);
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-size: 1.2em;
+            padding: 15px;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .transaction-form button:hover {
+            background: linear-gradient(135deg, #8e44ad, #3498db);
+            transform: scale(1.05);
+        }
+
+        .transactions {
+            margin-top: 20px;
+        }
+
+        #transaction-list {
+            list-style: none;
+            padding: 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        #transaction-list li {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 10px 15px;
+            transition: background-color 0.3s ease;
+        }
+
+        #transaction-list li:hover {
+            background-color: #f0f0f0;
+        }
+
+        #balance {
+            font-weight: bold;
+            color: #3498db;
+            font-size: 1.5em;
+            display: inline-block;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: #8e44ad #f0f0f0;
+        }
+
+        .scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .scrollbar::-webkit-scrollbar-track {
+            background: #f0f0f0;
+        }
+
+        .scrollbar::-webkit-scrollbar-thumb {
+            background-color: #8e44ad;
+            border-radius: 20px;
+            border: 3px solid transparent;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #8e44ad;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .button-container button {
+            background: linear-gradient(135deg, #e74c3c, #e67e22);
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-size: 1em;
+            padding: 10px 20px;
+            transition: all 0.3s ease;
+        }
+
+        .button-container button:hover {
+            transform: scale(1.05);
+            background: linear-gradient(135deg, #e67e22, #e74c3c);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Expense Tracker</h1>
+
+        <div class="transaction-form">
+            <input type="number" id="amount" placeholder="Amount" required>
+            <input type="text" id="description" placeholder="Description" required>
+            <select id="category" required>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+            </select>
+            <button onclick="addTransaction()">Add Transaction</button>
+        </div>
+
+        <div class="transactions">
+            <h2>Transactions</h2>
+            <ul id="transaction-list" class="scrollbar"></ul>
+        </div>
+
+        <h2>Remaining Balance: <span id="balance">$0.00</span></h2>
+
+        <div class="button-container">
+            <button onclick="restartTracker()">Restart</button>
+            <button onclick="redoLastTransaction()">Redo</button>
+            <button onclick="undoLastTransaction()">Undo</button>
+        </div>
+
+        <footer>&copy; 2024 Expense Tracker. All rights reserved.</footer>
+    </div>
+
+    <script>
+        let income = 0;
+        let expenses = 0;
+        let balance = 0;
+        let transactionHistory = [];
+        let undoStack = [];
+
+        document.addEventListener('DOMContentLoaded', loadStoredData);
+
+        function addTransaction() {
+            const amount = parseFloat(document.getElementById('amount').value);
+            const description = document.getElementById('description').value;
+            const category = document.getElementById('category').value;
+
+            if (amount && description && category) {
+                const transaction = { description, amount, category };
+                transactionHistory.push(transaction);
+
+                if (category === 'income') {
+                    income += amount;
+                } else if (category === 'expense') {
+                    expenses += amount;
+                }
+
+                updateBalance();
+                saveTransactionToStorage(transaction);
+                displayTransaction(description, amount, category);
+
+                // Clear input fields
+                document.getElementById('amount').value = '';
+                document.getElementById('description').value = '';
+
+                undoStack = []; // Clear redo stack on a new action
+            } else {
+                alert('Please fill in all fields');
+            }
+        }
+
+        function updateBalance() {
+            balance = income - expenses;
+            document.getElementById('balance').innerText = `$${balance.toFixed(2)}`;
+        }
+
+        function displayTransaction(description, amount, category) {
+            const transactionList = document.getElementById('transaction-list');
+            const li = document.createElement('li');
+            li.textContent = `${category.charAt(0).toUpperCase() + category.slice(1)}: ${description} - $${amount.toFixed(2)}`;
+            transactionList.appendChild(li);
+        }
+
+        function saveTransactionToStorage(transaction) {
+            let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+            transactions.push(transaction);
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+        }
+
+        function loadStoredData() {
+            const transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+            transactions.forEach(transaction => {
+                transactionHistory.push(transaction);
+                if (transaction.category === 'income') {
+                    income += transaction.amount;
+                } else if (transaction.category === 'expense') {
+                    expenses += transaction.amount;
+                }
+                displayTransaction(transaction.description, transaction.amount, transaction.category);
+            });
+            updateBalance();
+        }
+
+        function restartTracker() {
+            if (confirm('Are you sure you want to restart? This will clear all data.')) {
+                income = 0;
+                expenses = 0;
+                balance = 0;
+                transactionHistory = [];
+                undoStack = [];
+                localStorage.clear();
+                document.getElementById('transaction-list').innerHTML = '';
+                updateBalance();
+            }
+        }
+
+        function redoLastTransaction() {
+            const lastUndo = undoStack.pop();
+            if (lastUndo) {
+                transactionHistory.push(lastUndo);
+                if (lastUndo.category === 'income') {
+                    income += lastUndo.amount;
+                } else if (lastUndo.category === 'expense') {
+                    expenses += lastUndo.amount;
+                }
+                saveTransactionToStorage(lastUndo);
+                displayTransaction(lastUndo.description, lastUndo.amount, lastUndo.category);
+                updateBalance();
+            } else {
+                alert('No transaction to redo.');
+            }
+        }
+
+        function undoLastTransaction() {
+            const lastTransaction = transactionHistory.pop();
+            if (lastTransaction) {
+                undoStack.push(lastTransaction);
+
+                if (lastTransaction.category === 'income') {
+                    income -= lastTransaction.amount;
+                } else if (lastTransaction.category === 'expense') {
+                    expenses -= lastTransaction.amount;
+                }
+
+                updateBalance();
+
+                const transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+                transactions.pop();
+                localStorage.setItem('transactions', JSON.stringify(transactions));
+
+                const transactionList = document.getElementById('transaction-list');
+                transactionList.removeChild(transactionList.lastChild);
+            } else {
+                alert('No transaction to undo.');
+            }
+        }
+    </script>
+</body>
+</html>
